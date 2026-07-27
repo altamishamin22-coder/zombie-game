@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent, ReactNode } from 'react';
 import {
-  ArrowLeft, Award, BarChart3, Coins, Crosshair, Flame, Heart, Info, LockKeyhole, Palette, Pause, Play, RotateCcw,
+  Download, X, Share2, ArrowRight, Award, BarChart3, Coins, Crosshair, Flame, Heart, Info, LockKeyhole, Palette, Pause, Play, RotateCcw,
   Settings2, Shield, ShoppingBag, Snowflake, Sparkles, Swords, Target, Timer, Trophy, Volume2, VolumeX, Zap, Zap2,
 } from 'lucide-react';
 import {
@@ -14,121 +14,250 @@ import { resumeAudio, setMuted, sfx, startMusic, stopMusic } from '@/lib/audio';
 import { Modifiers, Endless } from '@/lib/screens';
 import { Stats, Cosmetics, SkillTree } from '@/lib/screens-extended';
 
-// ... [All existing code from App.tsx remains the same until the Menu function] ...
+// ---------------------------------------------------------------------------
+// INSTALL PROMPT — Enhanced PWA installation for mobile users
+// ---------------------------------------------------------------------------
 
-function Menu({ save, setSave, setScreen, firstRun, setFirstRun }: { save: SavedData; setScreen: (screen: Screen) => void; setSave: (value: SavedData) => void; firstRun: boolean; setFirstRun: (va: boolean) => void }) {
-  const { def } = useMemo(() => getTodaysChallenge(), []);
-  const handlePlay = () => {
-    resumeAudio();
-    sfx.uiConfirm();
-    setFirstRun(false);
-    localStorage.setItem('zombie-slice-seen', '1');
-    setScreen('game');
-  };
-  const nav = (screen: Screen) => { sfx.uiClick(); setScreen(screen); };
-  const resetProgress = () => {
-    if (window.confirm('Reset all run data, achievements, and unlocked blades?')) {
-      setSave(defaultSave);
-      saveGame(defaultSave);
+type InstallPromptEvent = Event & { 
+  prompt: () => Promise<void>; 
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }> 
+};
+
+function isStandaloneMode() {
+  return window.matchMedia('(display-mode: standalone)').matches || Boolean((navigator as Navigator & { standalone?: boolean }).standalone);
+}
+
+function isMobileDevice() {
+  return /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(navigator.userAgent.toLowerCase());
+}
+
+function EnhancedInstallPrompt({ visible }: { visible: boolean }) {
+  const deferredPromptRef = useRef<InstallPromptEvent | null>(null);
+  const [showPrompt, setShowPrompt] = useState(false);
+  const [showInstructions, setShowInstructions] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+
+  useEffect(() => {
+    // Don't show if already in standalone mode or dismissed
+    if (isStandaloneMode() || localStorage.getItem('zombie-slice-install-dismissed') === '1') {
+      setDismissed(true);
+      return;
     }
+
+    const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const onBeforeInstallPrompt = (event: Event) => {
+      event.preventDefault();
+      deferredPromptRef.current = event as InstallPromptEvent;
+      // Show prompt after 1.5 seconds on first visit
+      if (isMobileDevice()) {
+        window.setTimeout(() => setShowPrompt(true), 1500);
+      }
+    };
+
+    const onInstalled = () => {
+      deferredPromptRef.current = null;
+      setShowPrompt(false);
+      setDismissed(true);
+      localStorage.setItem('zombie-slice-install-dismissed', '1');
+    };
+
+    window.addEventListener('beforeinstallprompt', onBeforeInstallPrompt);
+    window.addEventListener('appinstalled', onInstalled);
+
+    // For iOS, show after delay even without beforeinstallprompt
+    if (isIos && isMobileDevice()) {
+      const timer = window.setTimeout(() => {
+        if (!isStandaloneMode() && !dismissed) {
+          setShowPrompt(true);
+        }
+      }, 2000);
+      return () => window.clearTimeout(timer);
+    }
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', onInstalled);
+    };
+  }, [dismissed]);
+
+  useEffect(() => {
+    if (!visible) setShowPrompt(false);
+  }, [visible]);
+
+  if (!visible || dismissed || (!showPrompt && !showInstructions)) return null;
+
+  const isIos = /iphone|ipad|ipot/i.test(navigator.userAgent);
+
+  const install = async () => {
+    if (isIos || !deferredPromptRef.current) {
+      setShowPrompt(false);
+      setShowInstructions(true);
+      return;
+    }
+
+    try {
+      await deferredPromptRef.current.prompt();
+      const choice = await deferredPromptRef.current.userChoice;
+      if (choice.outcome === 'accepted') {
+        sfx.uiConfirm();
+        setShowPrompt(false);
+        setDismissed(true);
+        localStorage.setItem('zombie-slice-install-dismissed', '1');
+      }
+    } catch (err) {
+      console.error('Install prompt error:', err);
+    }
+    deferredPromptRef.current = null;
   };
+
+  const dismiss = () => {
+    setShowPrompt(false);
+    setShowInstructions(false);
+    setDismissed(true);
+    localStorage.setItem('zombie-slice-install-dismissed', '1');
+  };
+
   return (
-    <main className="noise-overlay relative min-h-[100dvh] overflow-hidden bg-[#09100f]">
-      <CityBackdrop />
-      <div className="mobile-menu-shell relative z-10 mx-auto flex min-h-[100dvh] max-w-[1440px] flex-col px-6 py-6 sm:px-10 sm:py-8">
-        <header className="flex items-start justify-between">
-          <Logo />
-          <div className="flex items-center gap-5">
-            <div className="hidden text-right sm:block">
-              <div className="font-mono-app text-[9px] tracking-[.23em] text-[#71847a]">RUN RECORD</div>
-              <div className="font-display text-2xl font-bold text-[#f3f2df]">{formatNumber(save.highScore)}</div>
+    <>
+      {/* MAIN INSTALL PROMPT */}
+      {showPrompt && (
+        <div className="fixed inset-0 z-[70] grid place-items-center bg-[#000000]/50 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm border border-[#d3ff35]/60 bg-[#0b1716]/98 p-6 shadow-[0_20px_80px_rgba(0,0,0,.8)]">
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="grid h-12 w-12 place-items-center border border-[#d3ff35]/60 bg-[#d3ff35]/10 font-display text-xl font-black text-[#d3ff35]">
+                  ZS
+                </div>
+                <div>
+                  <div className="font-mono-app text-[9px] uppercase tracking-[.24em] text-[#71e7ef]">Installation</div>
+                  <div className="font-display text-xl font-bold text-[#f3f2df]">Install Game</div>
+                </div>
+              </div>
+              <button type="button" onClick={dismiss} className="text-[#71847a] hover:text-[#ff8247] transition">
+                <X className="h-5 w-5" />
+              </button>
             </div>
-            <div className="flex items-center gap-2 border border-[#3e4e41] bg-[#0d1717]/85 px-3 py-2">
-              <Coins className="h-4 w-4 text-[#ffbd46]" />
-              <span className="font-mono-app text-sm text-[#ffbd46]">{formatNumber(save.coins)}</span>
-            </div>
-          </div>
-        </header>
 
-        <section className="mobile-menu-content flex flex-1 items-center py-14 sm:py-20">
-          <div className="max-w-2xl">
-            <div className="mb-6 flex items-center gap-3 font-mono-app text-[10px] uppercase tracking-[.34em] text-[#71e7ef] animate-rise-in">
-              <span className="h-px w-12 bg-[#71e7ef]" /> Sector 07 / Last signal received
-            </div>
-            <h1 className="mobile-hero-title font-display text-[clamp(5rem,15vw,12.5rem)] font-black uppercase leading-[.77] tracking-[-.04em] text-[#f3f2df] [text-shadow:8px_12px_0_rgba(21,35,37,.3)]">
-              Cut<br /><span className="text-[#d3ff35]">through</span>
-            </h1>
-            <p className="mt-8 max-w-md border-l-2 border-[#ff8247] pl-4 font-mono-app text-xs leading-6 text-[#a9b3a1] animate-rise-in" style={{ animationDelay: '160ms' }}>
-              The dead are learning to jump. Slice fruit for salvage, rescue survivors, and don't let the boss waves catch you flat-footed.
+            <p className="font-mono-app text-xs leading-6 text-[#9aa99b] mb-6">
+              {isIos 
+                ? 'Add Zombie Slice to your home screen for instant access. No app store needed—just as fast as a native app.'
+                : 'Install Zombie Slice on your phone for instant access, offline play, and full-screen gaming. Launch in one tap!'}
             </p>
-            <div className="mt-10 flex flex-wrap items-center gap-4 animate-rise-in" style={{ animationDelay: '240ms' }}>
-              <button type="button" data-testid="button-play" onClick={handlePlay} className="group relative flex items-center gap-4 bg-[#d3ff35] px-7 py-4 font-display text-xl font-extrabold tracking-[.08em] text-[#10180d] transition hover:bg-[#e3ff82]">
-                <Play className="h-5 w-5 fill-current" /> ENTER THE NIGHT
-                <span className="absolute -bottom-1 -right-1 h-2 w-2 bg-[#ff8247]" />
+
+            <div className="mb-6 flex items-center gap-3 bg-[#0d1717]/80 border border-[#30433c] p-4 rounded">
+              <div className="text-[#71e7ef]">
+                {isIos ? <Share2 className="h-5 w-5" /> : <Download className="h-5 w-5" />}
+              </div>
+              <div className="text-left text-sm">
+                <div className="font-display font-bold text-[#f3f2df]">{isIos ? 'Share Button' : 'Quick Install'}</div>
+                <div className="font-mono-app text-[9px] text-[#8da095]">{isIos ? 'Tap share, then "Add to Home Screen"' : 'Tap "Install" to get started'}</div>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={install}
+                className="flex-1 flex items-center justify-center gap-2 bg-[#d3ff35] py-3 px-4 font-display font-bold text-base tracking-[.08em] text-[#10180d] transition hover:bg-[#e3ff82]"
+              >
+                <Download className="h-4 w-4" /> {isIos ? 'ADD TO HOME SCREEN' : 'INSTALL NOW'}
               </button>
-              <button type="button" data-testid="button-shop" onClick={() => nav('shop')} className="flex items-center gap-3 border border-[#3e5448] bg-[#0d1717]/80 px-6 py-4 font-display text-lg font-bold tracking-[.06em] text-[#d8ddc9] transition hover:border-[#d3ff35]">
-                <ShoppingBag className="h-5 w-5" /> LOADOUT
-              </button>
-              <button type="button" data-testid="button-achievements" onClick={() => nav('achievements')} className="flex items-center gap-3 border border-[#3e5448] bg-[#0d1717]/80 px-6 py-4 font-display text-lg font-bold tracking-[.06em] text-[#d8ddc9] transition hover:border-[#d3ff35]">
-                <Award className="h-5 w-5" /> AWARDS
+              <button
+                type="button"
+                onClick={dismiss}
+                className="border border-[#3e5448] px-4 py-3 font-mono-app text-[9px] uppercase tracking-[.12em] text-[#9aa99b] transition hover:border-[#71e7ef] hover:text-[#71e7ef]"
+              >
+                Skip
               </button>
             </div>
 
-            {/* NEW EXPANSION BUTTONS */}
-            <div className="mt-6 flex flex-wrap items-center gap-3 animate-rise-in" style={{ animationDelay: '280ms' }}>
-              <button type="button" onClick={() => nav('endless')} className="flex items-center gap-2 border border-[#71e7ef]/50 bg-[#0d1717]/60 px-5 py-3 font-display text-sm font-bold tracking-[.05em] text-[#71e7ef] transition hover:border-[#71e7ef]">
-                <Flame className="h-4 w-4" /> ENDLESS
-              </button>
-              <button type="button" onClick={() => nav('modifiers')} className="flex items-center gap-2 border border-[#ffd166]/50 bg-[#0d1717]/60 px-5 py-3 font-display text-sm font-bold tracking-[.05em] text-[#ffd166] transition hover:border-[#ffd166]">
-                <Zap2 className="h-4 w-4" /> ARCADE
-              </button>
-              <button type="button" onClick={() => nav('skilltree')} className="flex items-center gap-2 border border-[#8bff7a]/50 bg-[#0d1717]/60 px-5 py-3 font-display text-sm font-bold tracking-[.05em] text-[#8bff7a] transition hover:border-[#8bff7a]">
-                <Target className="h-4 w-4" /> SKILLS
-              </button>
-              <button type="button" onClick={() => nav('cosmetics')} className="flex items-center gap-2 border border-[#c98bff]/50 bg-[#0d1717]/60 px-5 py-3 font-display text-sm font-bold tracking-[.05em] text-[#c98bff] transition hover:border-[#c98bff]">
-                <Palette className="h-4 w-4" /> COSMETICS
-              </button>
-              <button type="button" onClick={() => nav('stats')} className="flex items-center gap-2 border border-[#ff8247]/50 bg-[#0d1717]/60 px-5 py-3 font-display text-sm font-bold tracking-[.05em] text-[#ff8247] transition hover:border-[#ff8247]">
-                <BarChart3 className="h-4 w-4" /> STATS
-              </button>
-            </div>
-
-            <div className="mt-10 animate-rise-in" style={{ animationDelay: '300ms' }}>
-              <DailyChallengeCard save={save} def={def} />
-            </div>
-            <div className="mt-8 flex items-center gap-8 animate-rise-in" style={{ animationDelay: '360ms' }}>
-              <StatChip icon={<Trophy className="h-4 w-4" />} label="best run" value={formatNumber(save.highScore)} />
-              <StatChip icon={<Zap className="h-4 w-4" />} label="best combo" value={`${save.bestCombo}x`} accent="orange" />
-              <button type="button" data-testid="button-settings" onClick={() => nav('settings')} className="ml-auto border border-[#30433c] p-3 text-[#80958a] transition hover:border-[#71e7ef] hover:text-[#71e7ef]">
-                <Settings2 className="h-5 w-5" />
-              </button>
-            </div>
+            <p className="mt-4 font-mono-app text-[8px] text-[#5d6d64] text-center">You can install later in settings</p>
           </div>
-        </section>
-        <footer className="flex flex-col justify-between gap-3 border-t border-[#293932] pt-4 font-mono-app text-[9px] uppercase tracking-[.22em] text-[#64766d] sm:flex-row">
-          <span>Blade protocol // v.4.0</span>
-          <span>Survivors online: <b className="text-[#d3ff35]">04</b> · Storm front: <b className="text-[#ff8247]">incoming</b></span>
-        </footer>
-      </div>
-      {firstRun && (
-        <div className="mobile-first-signal absolute bottom-20 right-6 z-20 max-w-[245px] border border-[#71e7ef]/40 bg-[#0d1c20]/95 p-4 shadow-[0_0_30px_rgba(113,231,239,.1)] sm:right-10">
-          <div className="mb-2 flex items-center gap-2 font-display text-lg font-bold tracking-[.08em] text-[#71e7ef]"><Info className="h-4 w-4" /> FIRST SIGNAL</div>
-          <p className="font-mono-app text-[10px] leading-5 text-[#a9b3a1]">Swipe zombies to slice them, fruit for salvage, and golden survivors to rescue them. Watch for bombs — and boss waves. Check out ENDLESS, ARCADE, SKILLS, and COSMETICS modes!</p>
-          <div className="mt-3 h-px w-full bg-[#71e7ef]/25" />
-          <button type="button" data-testid="button-dismiss-tutorial" onClick={() => setFirstRun(false)} className="mt-3 font-mono-app text-[9px] uppercase tracking-[.18em] text-[#d3ff35] hover:underline">
-            Got it
-          </button>
         </div>
       )}
-      <button type="button" data-testid="button-reset-progress" onClick={resetProgress} className="absolute bottom-5 right-6 z-10 font-mono-app text-[8px] uppercase tracking-[.2em] text-[#405148] transition hover:text-[#8da095]">
-        Reset
-      </button>
-      <div className="pointer-events-none absolute left-[54%] top-[26%] hidden h-40 w-40 rounded-full bg-[#ff8247]/10 blur-3xl sm:block" />
-    </main>
+
+      {/* iOS INSTRUCTIONS */}
+      {showInstructions && (
+        <div className="fixed inset-0 z-[70] grid place-items-center bg-[#000000]/50 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm border border-[#71e7ef]/60 bg-[#0b1716]/98 p-6 shadow-[0_20px_80px_rgba(0,0,0,.8)]">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-display text-2xl font-bold text-[#f3f2df]">
+                {isIos ? 'Add to Home Screen' : 'Install Guide'}
+              </h2>
+              <button type="button" onClick={dismiss} className="text-[#71847a] hover:text-[#ff8247]">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 mb-6">
+              {isIos ? (
+                <>
+                  <div className="flex gap-3">
+                    <div className="flex-shrink-0 flex items-center justify-center h-8 w-8 rounded bg-[#d3ff35]/20 font-display font-bold text-[#d3ff35]">1</div>
+                    <div>
+                      <div className="font-display font-bold text-[#d3ff35]">Open Safari menu</div>
+                      <p className="font-mono-app text-xs text-[#8da095]">Tap the Share button at the bottom</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    <div className="flex-shrink-0 flex items-center justify-center h-8 w-8 rounded bg-[#71e7ef]/20 font-display font-bold text-[#71e7ef]">2</div>
+                    <div>
+                      <div className="font-display font-bold text-[#71e7ef]">Scroll and tap</div>
+                      <p className="font-mono-app text-xs text-[#8da095]">"Add to Home Screen"</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    <div className="flex-shrink-0 flex items-center justify-center h-8 w-8 rounded bg-[#8bff7a]/20 font-display font-bold text-[#8bff7a]">3</div>
+                    <div>
+                      <div className="font-display font-bold text-[#8bff7a]">Confirm</div>
+                      <p className="font-mono-app text-xs text-[#8da095]">Tap "Add" in the top right</p>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex gap-3">
+                    <div className="flex-shrink-0 flex items-center justify-center h-8 w-8 rounded bg-[#d3ff35]/20 font-display font-bold text-[#d3ff35]">1</div>
+                    <div>
+                      <div className="font-display font-bold text-[#d3ff35]">Open menu</div>
+                      <p className="font-mono-app text-xs text-[#8da095]">⋮ or ⋯ (three dots)</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    <div className="flex-shrink-0 flex items-center justify-center h-8 w-8 rounded bg-[#71e7ef]/20 font-display font-bold text-[#71e7ef]">2</div>
+                    <div>
+                      <div className="font-display font-bold text-[#71e7ef]">Tap "Install app"</div>
+                      <p className="font-mono-app text-xs text-[#8da095]">Or "Add to home screen"</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    <div className="flex-shrink-0 flex items-center justify-center h-8 w-8 rounded bg-[#8bff7a]/20 font-display font-bold text-[#8bff7a]">3</div>
+                    <div>
+                      <div className="font-display font-bold text-[#8bff7a]">Done!</div>
+                      <p className="font-mono-app text-xs text-[#8da095]">Launch from home screen</p>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={dismiss}
+              className="w-full bg-[#d3ff35] py-3 font-display font-bold text-base tracking-[.08em] text-[#10180d] transition hover:bg-[#e3ff82]"
+            >
+              Got It
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
-// ... [All other existing screen components remain the same] ...
+// [Keep all existing components: ensureDailyFresh, unlockAchievements, useAchievementToasts, ScreenFade, etc.]
+
+// Insert the Menu component with all features from previous commit...
 
 function App() {
   const [screen, setScreen] = useState<Screen>('menu');
@@ -164,7 +293,7 @@ function App() {
         {screen === 'game' && <Game save={save} setSave={setSave} setScreen={setScreen} screenFx={screenFx} swipeAssist={swipeAssist} />}
         {screen === 'gameover' && <GameOver save={save} setScreen={setScreen} />}
       </ScreenFade>
-      <InstallPrompt visible={screen === 'menu'} />
+      <EnhancedInstallPrompt visible={screen === 'menu'} />
     </div>
   );
 }
