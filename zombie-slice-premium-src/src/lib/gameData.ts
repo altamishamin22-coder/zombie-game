@@ -1,4 +1,4 @@
-export type Screen = 'menu' | 'game' | 'shop' | 'settings' | 'achievements' | 'gameover';
+export type Screen = 'menu' | 'game' | 'shop' | 'settings' | 'achievements' | 'gameover' | 'endless' | 'modifiers' | 'stats' | 'cosmetics' | 'skilltree' | 'practice';
 export type BladeId = 'ion' | 'ember' | 'void' | 'cryo' | 'quake' | 'aurora';
 
 export type EntityKind = 'crawler' | 'brute' | 'runner' | 'bomb' | 'fruit' | 'survivor' | 'powerup' | 'boss';
@@ -43,6 +43,135 @@ export interface DailyChallengeState {
   claimed: boolean;
 }
 
+// ============================================================================
+// MODIFIERS & ARCADE MODE
+// ============================================================================
+
+export type ModifierId = 'chaos' | 'blindfold' | 'doublespeed' | 'ironman' | 'hardcorecombo' | 'slowmo';
+
+export interface Modifier {
+  id: ModifierId;
+  name: string;
+  description: string;
+  difficulty: 'easy' | 'normal' | 'hard' | 'extreme';
+  scoreMultiplier: number; // 0.5 = half points, 2 = double points
+}
+
+export const modifiers: Modifier[] = [
+  { id: 'chaos', name: 'CHAOS MODE', description: 'Screen inverts & rotates randomly. Swipe controls flip.', difficulty: 'extreme', scoreMultiplier: 2.5 },
+  { id: 'blindfold', name: 'BLINDFOLD', description: 'Entities fade out when far from your swipe.', difficulty: 'hard', scoreMultiplier: 2 },
+  { id: 'doublespeed', name: 'DOUBLE SPEED', description: 'All entities move 2x faster.', difficulty: 'hard', scoreMultiplier: 1.8 },
+  { id: 'ironman', name: 'IRON MAN', description: '1 life. No continues. One mistake ends it all.', difficulty: 'extreme', scoreMultiplier: 3 },
+  { id: 'hardcorecombo', name: 'HARDCORE COMBO', description: 'Combo resets on any non-kill (even power-ups).', difficulty: 'hard', scoreMultiplier: 2 },
+  { id: 'slowmo', name: 'SLOW-MO', description: 'Game runs at 0.7x speed. More time to react.', difficulty: 'easy', scoreMultiplier: 0.6 },
+];
+
+export function getModifier(id: ModifierId): Modifier {
+  return modifiers.find((m) => m.id === id) ?? modifiers[0];
+}
+
+// ============================================================================
+// SKILL TREE & PROGRESSION
+// ============================================================================
+
+export type SkillId = 'combodecay' | 'startlives' | 'powerupboost' | 'coinmultiplier' | 'scoreboost' | 'fruitluck';
+
+export interface Skill {
+  id: SkillId;
+  name: string;
+  description: string;
+  cost: number; // XP or coins
+  level: number; // 1-3
+  effect: string;
+}
+
+export const skillTree: Skill[] = [
+  { id: 'combodecay', name: 'Combo Decay', description: 'Combo decays 20% slower', cost: 100, level: 1, effect: 'combo_decay_slow' },
+  { id: 'startlives', name: 'Fortified', description: '+1 starting life', cost: 200, level: 1, effect: 'start_lives_plus_1' },
+  { id: 'powerupboost', name: 'Power Surge', description: 'Power-up duration +25%', cost: 150, level: 1, effect: 'powerup_duration_25' },
+  { id: 'coinmultiplier', name: 'Wealth', description: 'Coins earned +20%', cost: 250, level: 1, effect: 'coins_plus_20' },
+  { id: 'scoreboost', name: 'Score Ascent', description: 'Score +15%', cost: 200, level: 1, effect: 'score_plus_15' },
+  { id: 'fruitluck', name: 'Fruit Luck', description: 'Fruit spawn rate +30%', cost: 180, level: 1, effect: 'fruit_spawn_30' },
+];
+
+// ============================================================================
+// COSMETICS & CUSTOMIZATION
+// ============================================================================
+
+export type TrailStyleId = 'neon' | 'hologram' | 'fire' | 'ice' | 'plasma';
+export type HudThemeId = 'default' | 'sunset' | 'ocean' | 'forest' | 'void';
+export type ColorBlindModeId = 'none' | 'deuteranopia' | 'protanopia' | 'tritanopia';
+
+export interface TrailStyle {
+  id: TrailStyleId;
+  name: string;
+  colors: string[]; // gradient stops
+  unlocked: boolean;
+  price: number;
+}
+
+export interface HudTheme {
+  id: HudThemeId;
+  name: string;
+  primaryColor: string;
+  accentColor: string;
+  backgroundColor: string;
+  unlocked: boolean;
+  price: number;
+}
+
+export const trailStyles: TrailStyle[] = [
+  { id: 'neon', name: 'Neon', colors: ['#d3ff35', '#6cffcc'], unlocked: true, price: 0 },
+  { id: 'hologram', name: 'Hologram', colors: ['#71e7ef', '#b8fffa', '#8ec9ff'], unlocked: false, price: 250 },
+  { id: 'fire', name: 'Fire', colors: ['#ff8247', '#ffbd46', '#ff5d5d'], unlocked: false, price: 350 },
+  { id: 'ice', name: 'Ice', colors: ['#8ec9ff', '#d8f0ff', '#71e7ef'], unlocked: false, price: 300 },
+  { id: 'plasma', name: 'Plasma', colors: ['#ff5d5d', '#ffd166', '#d3ff35'], unlocked: false, price: 400 },
+];
+
+export const hudThemes: HudTheme[] = [
+  { id: 'default', name: 'Default', primaryColor: '#d3ff35', accentColor: '#71e7ef', backgroundColor: '#09100f', unlocked: true, price: 0 },
+  { id: 'sunset', name: 'Sunset', primaryColor: '#ff8247', accentColor: '#ffd166', backgroundColor: '#1a0f08', unlocked: false, price: 300 },
+  { id: 'ocean', name: 'Ocean', primaryColor: '#71e7ef', accentColor: '#8ec9ff', backgroundColor: '#0a1420', unlocked: false, price: 300 },
+  { id: 'forest', name: 'Forest', primaryColor: '#8bff7a', accentColor: '#6cffcc', backgroundColor: '#0a140f', unlocked: false, price: 300 },
+  { id: 'void', name: 'Void', primaryColor: '#c98bff', accentColor: '#ffd166', backgroundColor: '#0f0515', unlocked: false, price: 400 },
+];
+
+// ============================================================================
+// STATISTICS & SESSION HISTORY
+// ============================================================================
+
+export interface SessionRecord {
+  timestamp: number;
+  mode: 'normal' | 'endless' | 'arcade' | 'practice';
+  modifiers: ModifierId[];
+  finalScore: number;
+  finalCombo: number;
+  finalWave: number;
+  duration: number; // seconds
+  fruitsSliced: number;
+  survivorsRescued: number;
+  bossesDefeated: number;
+  coinsEarned: number;
+  blade: BladeId;
+}
+
+export interface LifetimeStats {
+  totalRuns: number;
+  totalScore: number;
+  totalTime: number; // seconds
+  totalZombiesSliced: number;
+  totalFruitsSliced: number;
+  totalSurvisorsRescued: number;
+  totalBossesDefeated: number;
+  totalCoinsEarned: number;
+  averageCombo: number;
+  bestRun: SessionRecord | null;
+}
+
+// ============================================================================
+// SAVED DATA (EXTENDED)
+// ============================================================================
+
 export interface SavedData {
   highScore: number;
   coins: number;
@@ -59,6 +188,23 @@ export interface SavedData {
   bestTime: number;
   achievements: string[];
   daily: DailyChallengeState;
+  // NEW: Modifiers & Arcade
+  arcadeModifiers: ModifierId[];
+  // NEW: Skills & Progression
+  unlockedSkills: SkillId[];
+  skillLevels: Record<SkillId, number>;
+  xp: number;
+  // NEW: Cosmetics
+  unlockedTrails: TrailStyleId[];
+  selectedTrail: TrailStyleId;
+  unlockedThemes: HudThemeId[];
+  selectedTheme: HudThemeId;
+  colorBlindMode: ColorBlindModeId;
+  // NEW: Statistics
+  sessionHistory: SessionRecord[];
+  // NEW: Endless Mode
+  endlessHighScore: number;
+  endlessHighWave: number;
 }
 
 export interface Blade {
@@ -135,7 +281,7 @@ export function getTodaysChallenge(): { key: string; def: DailyChallengeDef } {
   return { key, def };
 }
 
-export const STORAGE_KEY = 'zombie-slice-save-v2';
+export const STORAGE_KEY = 'zombie-slice-save-v3';
 
 export const defaultSave: SavedData = {
   highScore: 0,
@@ -153,6 +299,18 @@ export const defaultSave: SavedData = {
   bestTime: 0,
   achievements: [],
   daily: { date: '', challengeId: '', progress: 0, completed: false, claimed: false },
+  arcadeModifiers: [],
+  unlockedSkills: [],
+  skillLevels: {},
+  xp: 0,
+  unlockedTrails: ['neon'],
+  selectedTrail: 'neon',
+  unlockedThemes: ['default'],
+  selectedTheme: 'default',
+  colorBlindMode: 'none',
+  sessionHistory: [],
+  endlessHighScore: 0,
+  endlessHighWave: 0,
 };
 
 export function readSave(): SavedData {
@@ -166,6 +324,12 @@ export function readSave(): SavedData {
       unlocked: parsed.unlocked?.length ? parsed.unlocked : ['ion'],
       achievements: parsed.achievements ?? [],
       daily: parsed.daily ?? { ...defaultSave.daily },
+      arcadeModifiers: parsed.arcadeModifiers ?? [],
+      unlockedSkills: parsed.unlockedSkills ?? [],
+      skillLevels: parsed.skillLevels ?? {},
+      unlockedTrails: parsed.unlockedTrails ?? ['neon'],
+      unlockedThemes: parsed.unlockedThemes ?? ['default'],
+      sessionHistory: parsed.sessionHistory ?? [],
     };
   } catch {
     return { ...defaultSave };
@@ -182,4 +346,25 @@ export function saveGame(data: SavedData) {
 
 export function formatNumber(value: number) {
   return Math.floor(value).toLocaleString('en-US');
+}
+
+export function calculateLifetimeStats(save: SavedData): LifetimeStats {
+  const totalTime = save.sessionHistory.reduce((sum, s) => sum + s.duration, 0);
+  const totalScore = save.sessionHistory.reduce((sum, s) => sum + s.finalScore, 0);
+  const totalZombies = save.sessionHistory.reduce((sum, s) => sum + (s.finalScore / 20), 0); // rough estimate
+  const avgCombo = save.sessionHistory.length > 0 ? save.sessionHistory.reduce((sum, s) => sum + s.finalCombo, 0) / save.sessionHistory.length : 0;
+  const bestRun = save.sessionHistory.length > 0 ? save.sessionHistory.reduce((best, s) => s.finalScore > best.finalScore ? s : best) : null;
+
+  return {
+    totalRuns: save.gamesPlayed,
+    totalScore,
+    totalTime,
+    totalZombiesSliced: save.sliced,
+    totalFruitsSliced: save.fruitsSliced,
+    totalSurvisorsRescued: save.survivorsRescued,
+    totalBossesDefeated: save.bossesDefeated,
+    totalCoinsEarned: save.coins,
+    averageCombo: avgCombo,
+    bestRun,
+  };
 }
