@@ -191,3 +191,35 @@ export function stopMusic() {
   musicNode?.stop();
   musicNode = null;
 }
+
+// ---------------------------------------------------------------------------
+// Haptics — short vibration patterns for phones that support the Vibration
+// API. Silently does nothing on devices/browsers without support (desktop,
+// iOS Safari) or while the setting is turned off.
+// ---------------------------------------------------------------------------
+
+let hapticsEnabled = true;
+
+export function setHapticsEnabled(value: boolean) {
+  hapticsEnabled = value;
+}
+
+function vibrate(pattern: number | number[]) {
+  if (!hapticsEnabled) return;
+  try {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(pattern);
+  } catch {
+    // unsupported — ignore
+  }
+}
+
+export const haptics = {
+  tap: () => vibrate(8),
+  slice: () => vibrate(6),
+  rescue: () => vibrate(16),
+  hazard: () => vibrate([0, 35, 40, 35]),
+  bossHit: () => vibrate(10),
+  bossDefeated: () => vibrate([0, 30, 40, 30, 40, 60]),
+  achievement: () => vibrate([0, 18, 30, 18]),
+  gameOver: () => vibrate([0, 50, 60, 50]),
+};
